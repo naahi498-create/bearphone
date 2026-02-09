@@ -1,6 +1,7 @@
 import type { Sale, CreateSaleRequest, DashboardStats, ApiResponse } from '@/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// أولًا، استخدم متغير البيئة إن وُجد، وإلا استخدم الرابط الحي للنشر
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://bearphone.onrender.com/api';
 
 class ApiService {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
@@ -12,10 +13,17 @@ class ApiService {
         ...options,
       });
 
-      const data = await response.json();
-      
+      // محاولة قراءة البيانات
+      let data: any;
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
+
+      // التحقق من نجاح الاستجابة
       if (!response.ok) {
-        throw new Error(data.message || 'حدث خطأ في الاتصال');
+        throw new Error(data.message || `HTTP Error: ${response.status}`);
       }
 
       return data;
@@ -23,12 +31,12 @@ class ApiService {
       console.error('API Error:', error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'حدث خطأ غير متوقع',
+        message: error instanceof Error ? error.message : 'فشل الاتصال بالسيرفر',
       };
     }
   }
 
-  // Sales API
+  // =================== Sales API ===================
   async createSale(sale: CreateSaleRequest): Promise<ApiResponse<Sale>> {
     return this.request<Sale>('/sales', {
       method: 'POST',
