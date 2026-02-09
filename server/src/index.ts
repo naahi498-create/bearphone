@@ -1,19 +1,18 @@
 // src/server/index.ts
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
 import salesRoutes from './routes/sales';
 
 const app = express();
-// استخدام parseInt لضمان أن المنفذ رقم صحيح
 const port = parseInt(process.env.PORT || '10000', 10);
 
 // ---------- MIDDLEWARE ----------
 app.use(cors());
 app.use(express.json());
 
-// Logging middleware (تسجيل كل طلب يأتي للسيرفر)
-app.use((req: any, res: any, next: any) => {
+// Logging Middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
@@ -21,25 +20,24 @@ app.use((req: any, res: any, next: any) => {
 // ---------- API ROUTES ----------
 app.use('/api/sales', salesRoutes);
 
-// 404 for unknown API routes (حماية ذكية للروابط الخطأ)
-app.use('/api/*', (req: any, res: any) => {
+// Handle undefined API routes
+app.use('/api', (req: Request, res: Response) => {
   res.status(404).json({ success: false, message: 'API endpoint not found' });
 });
 
 // ---------- HEALTH CHECK ----------
-app.get('/health', (req: any, res: any) => {
+app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', message: 'Bear Phone POS API is running' });
 });
 
-// ---------- FRONTEND INTEGRATION (SPA) ----------
-// استخدام process.cwd() هو الحل الأمثل لمسارات Render
+// ---------- FRONTEND INTEGRATION ----------
 const distPath = path.join(process.cwd(), 'dist');
 console.log('Serving frontend from:', distPath);
 
 app.use(express.static(distPath));
 
-// توجيه أي رابط ليس API إلى واجهة الموقع
-app.get('*', (req: any, res: any) => {
+// Redirect all non-API requests to SPA
+app.get('*', (req: Request, res: Response) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ message: 'Not Found' });
   }
@@ -47,8 +45,7 @@ app.get('*', (req: any, res: any) => {
 });
 
 // ---------- ERROR HANDLING ----------
-// معالجة الأخطاء بشكل كامل
-app.use((err: any, req: any, res: any, next: any) => {
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
   console.error('Server Error:', err.message);
   res.status(500).json({ success: false, message: 'Internal Server Error' });
 });
