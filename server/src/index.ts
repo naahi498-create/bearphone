@@ -1,89 +1,56 @@
-import path from "path";
+// src/server/index.ts
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import { join } from 'path';
+import path from 'path';
 import salesRoutes from './routes/sales';
-import { initDatabase, testConnection } from '../database/db';
-
-// Load environment variables
-dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port: number = parseInt(process.env.PORT || '10000', 10);
 
-// Middleware
+// ---------- MIDDLEWARE ----------
 app.use(cors());
 app.use(express.json());
 
-// Static files for assets
-app.use('/assets', express.static(join(process.cwd(), 'public', 'assets')));
-
-// Request logging middleware
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+// Logging middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
 
-// Routes
+// ---------- API ROUTES ----------
 app.use('/api/sales', salesRoutes);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// 404 for unknown API routes
+app.use('/api/*', (req: Request, res: Response) => {
+  res.status(404).json({ success: false, message: 'API endpoint not found' });
+});
+
+// ---------- HEALTH CHECK ----------
+app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'OK', message: 'Bear Phone POS API is running' });
 });
 
-// Root endpoint// --- كود تشغيل الواجهة الجديد ---
-// تحديد مسار ملفات التصميم (dist)
-const distPath = path.join(__dirname, "../../dist");
+// ---------- FRONTEND INTEGRATION (SPA) ----------
+const distPath = path.join(process.cwd(), 'dist');
+console.log('Serving frontend from:', distPath);
 
-// السماح للسيرفر بقراءة الملفات
 app.use(express.static(distPath));
 
-// أي رابط غير الـ api نوجهه إلى ملف الواجهة الرئيسي
-app.get("*", (req, res) => {
-  // نتجاهل روابط الـ api لكي لا تتعطل
-  if (req.path.startsWith("/api")) {
-    return res.status(404).json({ message: "Not Found" });
+// Route all non-API requests to index.html (for SPA)
+app.get('*', (req: Request, res: Response) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ message: 'Not Found' });
   }
-  res.sendFile(path.join(distPath, "index.html"));
-});
-// -------------------------------
-
-// Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('❌ Unhandled error:', err);
-  res.status(500).json({
-    success: false,
-    message: 'حدث خطأ في الخادم',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
-  });
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
-// Start server
-async function startServer() {
-  try {
-    // Initialize database
-    initDatabase();
-    
-    // Test database connection
-    const dbConnected = testConnection();
-    if (!dbConnected) {
-      console.warn('⚠️ Starting server without database connection...');
-    }
+// ---------- ERROR HANDLING ----------
+app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error('Server Error:', err.message, err.stack);
+  res.status(500).json({ success: false, message: 'Internal Server Error' });
+});
 
-    app.listen(PORT, () => {
-      console.log(`
-🐻 =========================================
-    BEAR PHONE POS - دب فون
-    Server running on port ${PORT}
-    API: http://localhost:${PORT}
-=========================================
-      `);
-    });
-  } catch (error) {
-    console.error('❌ Failed to start server:', error);
-    process.exit(1);
-  }
-}
-
-startServer();
+// ---------- START SERVER ----------
+app.listen(port, () => {
+  console.log(`🐻 Bear Phone POS is running on port ${port}`);
+});
