@@ -1,4 +1,4 @@
-// src/server/index.ts
+// server/src/index.ts
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -36,11 +36,9 @@ console.log('Serving frontend from:', distPath);
 
 app.use(express.static(distPath));
 
-// Redirect all non-API requests to SPA
-app.get('*', (req: Request, res: Response) => {
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({ message: 'Not Found' });
-  }
+// ---------- FINAL CATCH-ALL (شبكة أمان لجميع الروابط) ----------
+app.use((req: Request, res: Response) => {
+  // إذا وصلنا لهنا، فهذا يعني أنه ليس رابط API ولم يتم العثور على static file
   res.sendFile(path.join(distPath, 'index.html'));
 });
 
