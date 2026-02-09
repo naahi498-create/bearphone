@@ -1,4 +1,4 @@
-import express from 'express';
+import path from "path";
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { join } from 'path';
@@ -32,18 +32,22 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', message: 'Bear Phone POS API is running' });
 });
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    name: 'Bear Phone POS API - دب فون',
-    version: '1.0.0',
-    endpoints: {
-      sales: '/api/sales',
-      dashboard: '/api/sales/stats/dashboard',
-      health: '/health',
-    },
-  });
+// Root endpoint// --- كود تشغيل الواجهة الجديد ---
+// تحديد مسار ملفات التصميم (dist)
+const distPath = path.join(__dirname, "../../dist");
+
+// السماح للسيرفر بقراءة الملفات
+app.use(express.static(distPath));
+
+// أي رابط غير الـ api نوجهه إلى ملف الواجهة الرئيسي
+app.get("*", (req, res) => {
+  // نتجاهل روابط الـ api لكي لا تتعطل
+  if (req.path.startsWith("/api")) {
+    return res.status(404).json({ message: "Not Found" });
+  }
+  res.sendFile(path.join(distPath, "index.html"));
 });
+// -------------------------------
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
