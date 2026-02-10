@@ -2,7 +2,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import path from 'path';
-import salesRoutes from './routes/sales';
+import salesRoutes from './routes/invoices'; // ✅ غيرنا الاسم هنا فقط
 
 const app = express();
 const port = parseInt(process.env.PORT || '10000', 10);
