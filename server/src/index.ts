@@ -1,14 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import axios from 'axios';
+// ❌ حذفنا axios لأننا سنستخدم fetch الموجود أصلاً في النظام
 
 // ================== 1. إعدادات السيرفر ==================
 const app = express();
 const port = parseInt(process.env.PORT || '10000', 10);
 
 // ================== 2. إعدادات UltraMsg (واتساب) ==================
-// 🔴 ضع بياناتك هنا ليعمل الواتساب
+// 🔴 تأكد من أن بياناتك هنا صحيحة
 const ULTRAMSG_INSTANCE = 'instance103848'; 
 const ULTRAMSG_TOKEN = 'token123456';       
 const PUBLIC_API_URL = 'https://bearphone.onrender.com';
@@ -23,7 +23,6 @@ interface Sale {
   date: string;
 }
 
-// نبدأ بمصفوفة فارغة
 let sales: Sale[] = [];
 
 // ================== 4. دوال مساعدة ==================
@@ -53,25 +52,32 @@ async function sendWhatsAppInvoice(sale: Sale) {
   `.trim();
 
   try {
-    await axios.post(
+    // ✅ هنا التغيير: نستخدم fetch بدلاً من axios
+    // هذا الأمر موجود في النظام ولا يحتاج لتثبيت
+    const response = await fetch(
       `https://api.ultramsg.com/${ULTRAMSG_INSTANCE}/messages/chat`,
-      new URLSearchParams({
-        token: ULTRAMSG_TOKEN,
-        to: formatPhone(sale.customerPhone),
-        body: message,
-      })
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          token: ULTRAMSG_TOKEN,
+          to: formatPhone(sale.customerPhone),
+          body: message,
+        }),
+      }
     );
-    console.log('📱 WhatsApp sent to:', formatPhone(sale.customerPhone));
+    
+    console.log('📱 WhatsApp API Status:', response.status);
   } catch (error: any) {
     console.error('⚠️ WhatsApp failed:', error.message);
   }
 }
 
-// ================== 5. البرمجيات الوسيطة (Middlewares) ==================
+// ================== 5. البرمجيات الوسيطة ==================
 app.use(cors());
 app.use(express.json());
 
-// تسجيل الطلبات
+// تسجيل الطلبات للمراقبة
 app.use((req: any, res: any, next: any) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
@@ -79,7 +85,7 @@ app.use((req: any, res: any, next: any) => {
 
 // ================== 6. روابط الفواتير (API Routes) ==================
 
-// أ) إحصائيات الداشبورد
+// أ) إحصائيات
 app.get('/api/sales/stats/dashboard', (req: any, res: any) => {
   const totalSales = sales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
   res.json({
@@ -88,12 +94,12 @@ app.get('/api/sales/stats/dashboard', (req: any, res: any) => {
   });
 });
 
-// ب) جلب كل الفواتير
+// ب) جلب الكل
 app.get('/api/sales', (req: any, res: any) => {
   res.json({ success: true, data: [...sales].reverse() });
 });
 
-// ج) إنشاء فاتورة جديدة + واتساب
+// ج) إنشاء فاتورة (مع واتساب)
 app.post('/api/sales', async (req: any, res: any) => {
   try {
     const newSale: Sale = {
@@ -108,9 +114,10 @@ app.post('/api/sales', async (req: any, res: any) => {
     sales.push(newSale);
     console.log('✅ Sale created:', newSale.id);
 
+    // رد سريع للموقع
     res.json({ success: true, data: newSale });
 
-    // إرسال الواتساب
+    // إرسال واتساب في الخلفية
     if (newSale.customerPhone) {
         sendWhatsAppInvoice(newSale);
     }
@@ -120,18 +127,17 @@ app.post('/api/sales', async (req: any, res: any) => {
   }
 });
 
-// د) جلب فاتورة برقمها
+// د) جلب واحدة
 app.get('/api/sales/:id', (req: any, res: any) => {
   const sale = sales.find(s => s.id === Number(req.params.id));
   if (!sale) return res.status(404).json({ success: false, message: 'Not Found' });
   res.json({ success: true, data: sale });
 });
 
-// ================== 7. تشغيل الموقع (Frontend) ==================
+// ================== 7. تشغيل الموقع ==================
 const distPath = path.join(process.cwd(), 'dist');
 app.use(express.static(distPath));
 
-// التعامل مع أي رابط آخر (للموقع)
 app.use((req: any, res: any) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ message: 'API Not Found' });
