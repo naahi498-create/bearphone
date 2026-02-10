@@ -3,11 +3,11 @@ import axios from 'axios';
 
 const router = Router();
 
-// ================== UltraMsg Config (اكتب بياناتك هنا مباشرة) ==================
-// 🔴 استبدل الكلام الموجود هنا ببياناتك الحقيقية لكي يعمل الواتساب فوراً
-const ULTRAMSG_INSTANCE = 'instance103848'; // مثال: instanceXXXXX
-const ULTRAMSG_TOKEN = 'token123456';       // مثال: your_token_here
-const PUBLIC_API_URL = 'https://bearphone.onrender.com/api'; // رابط موقعك
+// ================== إعدادات UltraMsg ==================
+// استبدل هذه القيم ببياناتك الحقيقية ليعمل الواتساب
+const ULTRAMSG_INSTANCE = 'instance103848'; 
+const ULTRAMSG_TOKEN = 'token123456';       
+const PUBLIC_API_URL = 'https://bearphone.onrender.com/api';
 
 // ================== In-Memory Storage ==================
 interface Sale {
@@ -19,12 +19,10 @@ interface Sale {
   date: string;
 }
 
-// نبدأ بمصفوفة فارغة
 let sales: Sale[] = [];
 
 // ================== Helpers ==================
 function formatPhone(phone: string): string {
-  // دالة ذكية: تحول 050xxxx إلى 96650xxxx
   let p = phone.replace(/\D/g, '');
   if (p.startsWith('05')) {
     p = '966' + p.substring(1);
@@ -37,7 +35,6 @@ function formatPhone(phone: string): string {
 async function sendWhatsAppInvoice(sale: Sale) {
   if (!sale.customerPhone) return;
 
-  // رابط الفاتورة (حالياً نضع رابط JSON كمثال)
   const invoiceUrl = `${PUBLIC_API_URL}/sales/${sale.id}`;
 
   const message = `
@@ -51,43 +48,35 @@ async function sendWhatsAppInvoice(sale: Sale) {
 🙏 شكراً لتعاملك معنا!
   `.trim();
 
-  // إرسال الرسالة باستخدام axios
-  await axios.post(
-    `https://api.ultramsg.com/${ULTRAMSG_INSTANCE}/messages/chat`,
-    new URLSearchParams({
-      token: ULTRAMSG_TOKEN,
-      to: formatPhone(sale.customerPhone),
-      body: message,
-    })
-  );
-
-  console.log('📱 WhatsApp sent to:', formatPhone(sale.customerPhone));
+  try {
+    await axios.post(
+      `https://api.ultramsg.com/${ULTRAMSG_INSTANCE}/messages/chat`,
+      new URLSearchParams({
+        token: ULTRAMSG_TOKEN,
+        to: formatPhone(sale.customerPhone),
+        body: message,
+      })
+    );
+    console.log('📱 WhatsApp sent to:', formatPhone(sale.customerPhone));
+  } catch (error: any) {
+    console.error('⚠️ WhatsApp failed:', error.message);
+  }
 }
 
 // ================== Routes ==================
 
-// 🔹 Dashboard stats
 router.get('/stats/dashboard', (req: any, res: any) => {
   const totalSales = sales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
   res.json({
     success: true,
-    data: {
-      todaySales: totalSales,
-      transactions: sales.length,
-      growth: sales.length > 0 ? 100 : 0,
-    },
+    data: { todaySales: totalSales, transactions: sales.length, growth: 100 },
   });
 });
 
-// 🔹 Get all sales
 router.get('/', (req: any, res: any) => {
-  res.json({
-    success: true,
-    data: [...sales].reverse(),
-  });
+  res.json({ success: true, data: [...sales].reverse() });
 });
 
-// 🔹 Create sale + WhatsApp (القلب النابض)
 router.post('/', async (req: any, res: any) => {
   try {
     const newSale: Sale = {
@@ -102,34 +91,23 @@ router.post('/', async (req: any, res: any) => {
     sales.push(newSale);
     console.log('✅ Sale created:', newSale.id);
 
-    // نرسل الرد للموقع فوراً لكي لا يعلق
-    res.json({
-      success: true,
-      data: newSale,
-    });
+    // الرد فوراً
+    res.json({ success: true, data: newSale });
 
-    // ثم نحاول إرسال الواتساب في الخلفية
+    // إرسال الواتساب في الخلفية
     if (newSale.customerPhone) {
-        sendWhatsAppInvoice(newSale).catch(err => 
-            console.error('⚠️ WhatsApp failed (Check token/instance):', err.message)
-        );
+        sendWhatsAppInvoice(newSale);
     }
 
   } catch (error) {
-    console.error('❌ Create sale error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'فشل إنشاء الفاتورة',
-    });
+    console.error('❌ Error:', error);
+    res.status(500).json({ success: false, message: 'Failed' });
   }
 });
 
-// 🔹 Get sale by ID
 router.get('/:id', (req: any, res: any) => {
   const sale = sales.find(s => s.id === Number(req.params.id));
-  if (!sale) {
-    return res.status(404).json({ success: false, message: 'الفاتورة غير موجودة' });
-  }
+  if (!sale) return res.status(404).json({ success: false, message: 'Not Found' });
   res.json({ success: true, data: sale });
 });
 
